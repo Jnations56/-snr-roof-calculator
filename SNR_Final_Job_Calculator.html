@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SNR Job Profit Calculator</title>
+<style>
+:root{--navy:#173a5e;--blue:#2f6ea5;--light:#eef5fb;--green:#dff3e4;--red:#ffe3e3;--text:#17212b}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f4f6f8;color:var(--text)}
+.wrap{max-width:720px;margin:auto;padding:16px 12px 36px}
+.card{background:white;border-radius:18px;box-shadow:0 8px 28px rgba(0,0,0,.08);overflow:hidden}
+header{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;padding:22px}
+header h1{margin:0;font-size:24px} header p{margin:7px 0 0;opacity:.92}
+section{padding:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.field{display:flex;flex-direction:column;gap:6px}.full{grid-column:1/-1}
+label{font-weight:700;font-size:14px}
+input{width:100%;font-size:17px;padding:13px;border:1px solid #cfd8e3;border-radius:11px}
+input:focus{outline:3px solid rgba(47,110,165,.18);border-color:var(--blue)}
+.results{margin-top:18px;background:var(--light);border-radius:14px;padding:14px}
+.row{display:flex;justify-content:space-between;gap:15px;padding:10px 4px;border-bottom:1px solid #d7e2ec}
+.row:last-child{border-bottom:0}.row strong:last-child{text-align:right}
+.profit,.split{margin-top:10px;padding:15px;border-radius:12px;background:var(--green);font-size:19px}
+.negative{background:var(--red)}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+button{border:0;border-radius:11px;padding:13px 10px;font-size:16px;font-weight:800;cursor:pointer}
+.primary{background:var(--navy);color:white}.secondary{background:#e8edf2;color:var(--text)}
+.saved{margin-top:22px}.saved h2{font-size:20px;margin:0 0 10px}
+.job{border:1px solid #d9e1e8;border-radius:12px;padding:12px;margin:10px 0}
+.jobname{font-weight:800}.meta{font-size:13px;color:#5a6672;margin-top:4px}
+.actions{display:flex;gap:8px;margin-top:10px}.actions button{font-size:14px;padding:9px 11px}
+.note{font-size:12px;color:#66727e;margin-top:12px;line-height:1.4}
+@media(max-width:560px){.grid,.buttons{grid-template-columns:1fr}.full{grid-column:auto}}
+@media print{body{background:white}.buttons,.saved,.note{display:none}.card{box-shadow:none}.wrap{padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+<header><h1>SNR Contracting Job Calculator</h1><p>Built to match your exact job-cost model.</p></header>
+<section>
+<div class="grid">
+  <div class="field full"><label>Job name</label><input id="jobName" placeholder="McKinley Job"></div>
+  <div class="field"><label>Roofing squares</label><input id="squares" type="number" inputmode="decimal" step="0.01" value="25"></div>
+  <div class="field"><label>Price per square</label><input id="price" type="number" inputmode="decimal" step="0.01" value="370"></div>
+  <div class="field"><label>SNR percentage</label><input id="snrRate" type="number" inputmode="decimal" step="0.01" value="10"></div>
+  <div class="field"><label>Materials before tax</label><input id="materials" type="number" inputmode="decimal" step="0.01" value="4458.22"></div>
+  <div class="field"><label>Sales tax percentage</label><input id="taxRate" type="number" inputmode="decimal" step="0.01" value="7"></div>
+  <div class="field"><label>Labor per square</label><input id="laborRate" type="number" inputmode="decimal" step="0.01" value="70"></div>
+  <div class="field"><label>Dumpster</label><input id="dumpster" type="number" inputmode="decimal" step="0.01" value="400"></div>
+  <div class="field"><label>OSB sheets</label><input id="osbSheets" type="number" inputmode="numeric" step="1" value="2"></div>
+  <div class="field"><label>OSB price per sheet</label><input id="osbPrice" type="number" inputmode="decimal" step="0.01" value="20"></div>
+</div>
+
+<div class="results">
+  <div class="row"><span>Job cost / total</span><strong id="jobTotal">$0.00</strong></div>
+  <div class="row"><span>SNR deduction</span><strong id="snrAmount">$0.00</strong></div>
+  <div class="row"><span>Materials with sales tax</span><strong id="materialsWithTax">$0.00</strong></div>
+  <div class="row"><span>Labor</span><strong id="laborTotal">$0.00</strong></div>
+  <div class="row"><span>Dumpster</span><strong id="dumpsterTotal">$0.00</strong></div>
+  <div class="row"><span>OSB</span><strong id="osbTotal">$0.00</strong></div>
+  <div class="row"><span>Total deductions</span><strong id="deductions">$0.00</strong></div>
+  <div class="row profit" id="profitBox"><span>Total profit</span><strong id="profit">$0.00</strong></div>
+  <div class="row split"><span>Drew's 50%</span><strong id="drew">$0.00</strong></div>
+  <div class="row split"><span>Jamie's 50%</span><strong id="jamie">$0.00</strong></div>
+</div>
+
+<div class="buttons">
+  <button class="primary" id="saveBtn">Save This Job</button>
+  <button class="secondary" id="newBtn">Create New Job</button>
+  <button class="secondary" id="printBtn">Print / Save PDF</button>
+  <button class="secondary" id="exportBtn">Export Saved Jobs</button>
+</div>
+
+<div class="saved"><h2>Saved Jobs</h2><div id="savedJobs"></div></div>
+<div class="note">Saved jobs stay in this browser on this device. Use Export Saved Jobs as a backup.</div>
+</section></div></div>
+
+<script>
+const fieldIds=["jobName","squares","price","snrRate","materials","taxRate","laborRate","dumpster","osbSheets","osbPrice"];
+const $=id=>document.getElementById(id);
+const n=id=>parseFloat($(id).value)||0;
+const money=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(v);
+let editingId=null;
+
+function calculate(){
+ const jobTotal=n("squares")*n("price");
+ const snrAmount=jobTotal*(n("snrRate")/100);
+ const materialsWithTax=n("materials")*(1+n("taxRate")/100);
+ const laborTotal=n("squares")*n("laborRate");
+ const dumpster=n("dumpster");
+ const osbTotal=n("osbSheets")*n("osbPrice");
+ const deductions=snrAmount+materialsWithTax+laborTotal+dumpster+osbTotal;
+ const profit=jobTotal-deductions;
+ const split=profit/2;
+ $("jobTotal").textContent=money(jobTotal);
+ $("snrAmount").textContent=money(snrAmount);
+ $("materialsWithTax").textContent=money(materialsWithTax);
+ $("laborTotal").textContent=money(laborTotal);
+ $("dumpsterTotal").textContent=money(dumpster);
+ $("osbTotal").textContent=money(osbTotal);
+ $("deductions").textContent=money(deductions);
+ $("profit").textContent=money(profit);
+ $("drew").textContent=money(split);
+ $("jamie").textContent=money(split);
+ $("profitBox").classList.toggle("negative",profit<0);
+ return {jobTotal,snrAmount,materialsWithTax,laborTotal,dumpster,osbTotal,deductions,profit,split};
+}
+function getJobs(){try{return JSON.parse(localStorage.getItem("snrExactJobs")||"[]")}catch(e){return []}}
+function setJobs(v){localStorage.setItem("snrExactJobs",JSON.stringify(v))}
+function formData(){const d={};fieldIds.forEach(id=>d[id]=$(id).value);d.calcs=calculate();d.savedAt=new Date().toISOString();return d}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
+function saveJob(){
+ const d=formData(); if(!d.jobName.trim()){alert("Please enter a job name.");return}
+ const list=getJobs();
+ if(editingId){const i=list.findIndex(j=>j.id===editingId);if(i>=0)list[i]={...d,id:editingId}}
+ else list.unshift({...d,id:String(Date.now())});
+ setJobs(list);editingId=null;$("saveBtn").textContent="Save This Job";renderJobs();alert("Job saved.");
+}
+function openJob(id){
+ const j=getJobs().find(x=>x.id===id);if(!j)return;
+ fieldIds.forEach(k=>$(k).value=j[k]??"");
+ editingId=id;$("saveBtn").textContent="Update Saved Job";calculate();scrollTo({top:0,behavior:"smooth"});
+}
+function deleteJob(id){if(confirm("Delete this saved job?")){setJobs(getJobs().filter(j=>j.id!==id));renderJobs()}}
+function newJob(){
+ $("jobName").value="";
+ $("squares").value=0;$("price").value=370;$("snrRate").value=10;$("materials").value=0;$("taxRate").value=7;
+ $("laborRate").value=70;$("dumpster").value=0;$("osbSheets").value=0;$("osbPrice").value=20;
+ editingId=null;$("saveBtn").textContent="Save This Job";calculate();$("jobName").focus();
+}
+function renderJobs(){
+ const list=getJobs(),box=$("savedJobs");
+ if(!list.length){box.innerHTML='<div class="meta">No saved jobs yet.</div>';return}
+ box.innerHTML=list.map(j=>`<div class="job"><div class="jobname">${esc(j.jobName)}</div>
+ <div class="meta">${new Date(j.savedAt).toLocaleString()} · Profit ${money(j.calcs?.profit||0)} · Each ${money(j.calcs?.split||0)}</div>
+ <div class="actions"><button class="secondary" onclick="openJob('${j.id}')">Open</button><button class="secondary" onclick="deleteJob('${j.id}')">Delete</button></div></div>`).join("");
+}
+function exportJobs(){
+ const list=getJobs();if(!list.length){alert("There are no saved jobs to export.");return}
+ const h=["Job","Squares","Price/Square","SNR %","Materials","Tax %","Labor/Square","Dumpster","OSB Sheets","OSB Price","Job Total","Deductions","Profit","Drew","Jamie","Saved"];
+ const rows=list.map(j=>[j.jobName,j.squares,j.price,j.snrRate,j.materials,j.taxRate,j.laborRate,j.dumpster,j.osbSheets,j.osbPrice,j.calcs?.jobTotal,j.calcs?.deductions,j.calcs?.profit,j.calcs?.split,j.calcs?.split,j.savedAt]);
+ const csv=[h,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+ const blob=new Blob([csv],{type:"text/csv"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="SNR-Saved-Jobs.csv";a.click();URL.revokeObjectURL(a.href);
+}
+fieldIds.forEach(id=>$(id).addEventListener("input",calculate));
+$("saveBtn").addEventListener("click",saveJob);
+$("newBtn").addEventListener("click",newJob);
+$("printBtn").addEventListener("click",()=>window.print());
+$("exportBtn").addEventListener("click",exportJobs);
+calculate();renderJobs();
+</script>
+</body></html>
