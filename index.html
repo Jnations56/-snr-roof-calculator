@@ -37,7 +37,7 @@ button{border:0;border-radius:11px;padding:13px 10px;font-size:16px;font-weight:
 </head>
 <body>
 <div class="wrap"><div class="card">
-<header><h1>SNR Contracting Job Calculator</h1><p>Includes the $85 material delivery fee and your exact profit split.</p></header>
+<header><h1>SNR Contracting Job Calculator</h1><p>Includes the $85 material delivery fee, additional-work deductions, and your exact profit split.</p></header>
 <section>
 <div class="grid">
   <div class="field full"><label>Job name</label><input id="jobName" placeholder="McKinley Job"></div>
@@ -51,8 +51,8 @@ button{border:0;border-radius:11px;padding:13px 10px;font-size:16px;font-weight:
   <div class="field"><label>Dumpster</label><input id="dumpster" type="number" inputmode="decimal" step="0.01" value="400"></div>
   <div class="field"><label>OSB sheets</label><input id="osbSheets" type="number" inputmode="numeric" step="1" value="2"></div>
   <div class="field"><label>OSB price per sheet</label><input id="osbPrice" type="number" inputmode="decimal" step="0.01" value="20"></div>
+  <div class="field full"><label>Additional work deduction</label><input id="additionalWork" type="number" inputmode="decimal" step="0.01" value="0" placeholder="Enter additional work cost"></div>
 </div>
-
 <div class="results">
   <div class="row"><span>Job cost / total</span><strong id="jobTotal">$0.00</strong></div>
   <div class="row"><span>SNR deduction</span><strong id="snrAmount">$0.00</strong></div>
@@ -61,12 +61,12 @@ button{border:0;border-radius:11px;padding:13px 10px;font-size:16px;font-weight:
   <div class="row"><span>Labor</span><strong id="laborTotal">$0.00</strong></div>
   <div class="row"><span>Dumpster</span><strong id="dumpsterTotal">$0.00</strong></div>
   <div class="row"><span>OSB</span><strong id="osbTotal">$0.00</strong></div>
+  <div class="row"><span>Additional work deduction</span><strong id="additionalWorkTotal">$0.00</strong></div>
   <div class="row"><span>Total deductions</span><strong id="deductions">$0.00</strong></div>
   <div class="row profit" id="profitBox"><span>Total profit</span><strong id="profit">$0.00</strong></div>
   <div class="row split"><span>Drew's 50%</span><strong id="drew">$0.00</strong></div>
   <div class="row split"><span>Jamie's 50%</span><strong id="jamie">$0.00</strong></div>
 </div>
-
 <div class="buttons">
   <button class="primary" id="saveBtn">Save This Job</button>
   <button class="secondary" id="newBtn">Create New Job</button>
@@ -77,14 +77,12 @@ button{border:0;border-radius:11px;padding:13px 10px;font-size:16px;font-weight:
 <div class="saved"><h2>Saved Jobs</h2><div id="savedJobs"></div></div>
 <div class="note">Saved jobs stay in this browser on this device. Use Export Saved Jobs as a backup.</div>
 </section></div></div>
-
 <script>
-const fieldIds=["jobName","squares","price","snrRate","materials","taxRate","deliveryFee","laborRate","dumpster","osbSheets","osbPrice"];
+const fieldIds=["jobName","squares","price","snrRate","materials","taxRate","deliveryFee","laborRate","dumpster","osbSheets","osbPrice","additionalWork"];
 const $=id=>document.getElementById(id);
 const n=id=>parseFloat($(id).value)||0;
 const money=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(v);
 let editingId=null;
-
 function calculate(){
  const jobTotal=n("squares")*n("price");
  const snrAmount=jobTotal*(n("snrRate")/100);
@@ -93,7 +91,8 @@ function calculate(){
  const laborTotal=n("squares")*n("laborRate");
  const dumpster=n("dumpster");
  const osbTotal=n("osbSheets")*n("osbPrice");
- const deductions=snrAmount+materialsWithTax+deliveryFee+laborTotal+dumpster+osbTotal;
+ const additionalWork=n("additionalWork");
+ const deductions=snrAmount+materialsWithTax+deliveryFee+laborTotal+dumpster+osbTotal+additionalWork;
  const profit=jobTotal-deductions;
  const split=profit/2;
  $("jobTotal").textContent=money(jobTotal);
@@ -103,12 +102,13 @@ function calculate(){
  $("laborTotal").textContent=money(laborTotal);
  $("dumpsterTotal").textContent=money(dumpster);
  $("osbTotal").textContent=money(osbTotal);
+ $("additionalWorkTotal").textContent=money(additionalWork);
  $("deductions").textContent=money(deductions);
  $("profit").textContent=money(profit);
  $("drew").textContent=money(split);
  $("jamie").textContent=money(split);
  $("profitBox").classList.toggle("negative",profit<0);
- return {jobTotal,snrAmount,materialsWithTax,deliveryFee,laborTotal,dumpster,osbTotal,deductions,profit,split};
+ return {jobTotal,snrAmount,materialsWithTax,deliveryFee,laborTotal,dumpster,osbTotal,additionalWork,deductions,profit,split};
 }
 function getJobs(){try{return JSON.parse(localStorage.getItem("snrExactJobs")||"[]")}catch(e){return []}}
 function setJobs(v){localStorage.setItem("snrExactJobs",JSON.stringify(v))}
@@ -123,14 +123,18 @@ function saveJob(){
 }
 function openJob(id){
  const j=getJobs().find(x=>x.id===id);if(!j)return;
- fieldIds.forEach(k=>$(k).value=(k==="deliveryFee" && j[k] == null) ? "85" : (j[k]??""));
+ fieldIds.forEach(k=>{
+   if(k==="deliveryFee" && j[k] == null) $(k).value="85";
+   else if(k==="additionalWork" && j[k] == null) $(k).value="0";
+   else $(k).value=j[k]??"";
+ });
  editingId=id;$("saveBtn").textContent="Update Saved Job";calculate();scrollTo({top:0,behavior:"smooth"});
 }
 function deleteJob(id){if(confirm("Delete this saved job?")){setJobs(getJobs().filter(j=>j.id!==id));renderJobs()}}
 function newJob(){
  $("jobName").value="";
  $("squares").value=0;$("price").value=370;$("snrRate").value=10;$("materials").value=0;$("taxRate").value=7;$("deliveryFee").value=85;
- $("laborRate").value=70;$("dumpster").value=0;$("osbSheets").value=0;$("osbPrice").value=20;
+ $("laborRate").value=70;$("dumpster").value=0;$("osbSheets").value=0;$("osbPrice").value=20;$("additionalWork").value=0;
  editingId=null;$("saveBtn").textContent="Save This Job";calculate();$("jobName").focus();
 }
 function renderJobs(){
@@ -142,8 +146,8 @@ function renderJobs(){
 }
 function exportJobs(){
  const list=getJobs();if(!list.length){alert("There are no saved jobs to export.");return}
- const h=["Job","Squares","Price/Square","SNR %","Materials","Tax %","Delivery Fee","Labor/Square","Dumpster","OSB Sheets","OSB Price","Job Total","Deductions","Profit","Drew","Jamie","Saved"];
- const rows=list.map(j=>[j.jobName,j.squares,j.price,j.snrRate,j.materials,j.taxRate,j.deliveryFee??85,j.laborRate,j.dumpster,j.osbSheets,j.osbPrice,j.calcs?.jobTotal,j.calcs?.deductions,j.calcs?.profit,j.calcs?.split,j.calcs?.split,j.savedAt]);
+ const h=["Job","Squares","Price/Square","SNR %","Materials","Tax %","Delivery Fee","Labor/Square","Dumpster","OSB Sheets","OSB Price","Additional Work","Job Total","Deductions","Profit","Drew","Jamie","Saved"];
+ const rows=list.map(j=>[j.jobName,j.squares,j.price,j.snrRate,j.materials,j.taxRate,j.deliveryFee??85,j.laborRate,j.dumpster,j.osbSheets,j.osbPrice,j.additionalWork??0,j.calcs?.jobTotal,j.calcs?.deductions,j.calcs?.profit,j.calcs?.split,j.calcs?.split,j.savedAt]);
  const csv=[h,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
  const blob=new Blob([csv],{type:"text/csv"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="SNR-Saved-Jobs.csv";a.click();URL.revokeObjectURL(a.href);
 }
